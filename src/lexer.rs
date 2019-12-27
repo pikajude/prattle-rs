@@ -44,13 +44,13 @@ use std::iter::FromIterator;
 
 use token::Token;
 
-///Basic lexer trait that Parser implementations should use. 
-/// How one implements it is entirely up to implementors. 
+///Basic lexer trait that Parser implementations should use.
+/// How one implements it is entirely up to implementors.
 /// A basic implementation around a Vec is provided for convenience.
 pub trait Lexer<T: Token> {
-    ///Parser impls should use this before *every* next_token call. 
+    ///Parser impls should use this before *every* next_token call.
     fn peek(&self) -> Option<T>;
-    ///Moves Lexer forward to the next token, returning it. 
+    ///Moves Lexer forward to the next token, returning it.
     fn next_token(&mut self) -> T;
     //Moves Lexer backward to previous token, returning it.
     fn prev_token(&mut self) -> T;
@@ -65,46 +65,46 @@ pub struct LexerVec<T: Token> {
     index: usize,
 }
 
-///User facing view of LexerVec. 
-/// Auto impl Debug will expose internal tokens. 
+///User facing view of LexerVec.
+/// Auto impl Debug will expose internal tokens.
 impl<T: Token> Display for LexerVec<T> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "(LexerVec)")
     }
 }
 
-///Basic implementation of Lexer that wraps a vector 
-/// Wraps the trait calls so users can include just this struct 
-/// without the trait. 
-#[allow(dead_code)]
-impl<T: Token> LexerVec<T>
-{
-    pub fn new<Iter: IntoIterator<Item=I>, I: Into<T>>(tokens: Iter) -> LexerVec<T> {
-        let tokens = tokens.into_iter().map(|i|i.into()).collect();
+///Basic implementation of Lexer that wraps a vector
+/// Wraps the trait calls so users can include just this struct
+/// without the trait.
+impl<T: Token> LexerVec<T> {
+    pub fn new<Iter: IntoIterator<Item = I>, I: Into<T>>(tokens: Iter) -> Self {
+        let tokens = tokens.into_iter().map(|i| i.into()).collect();
         LexerVec {
             inner: tokens,
-            index: 0
+            index: 0,
         }
     }
 
+    #[allow(dead_code)]
     fn peek(&self) -> Option<T> {
         <Self as Lexer<T>>::peek(self)
     }
 
+    #[allow(dead_code)]
     fn next_token(&mut self) -> T {
         <Self as Lexer<T>>::next_token(self)
     }
 
+    #[allow(dead_code)]
     fn prev_token(&mut self) -> T {
         <Self as Lexer<T>>::prev_token(self)
     }
 }
 
-impl<T: Token> Lexer<T> for LexerVec<T>
-{
-    ///Basic index bounds checking. 
-    /// index is usize, so can never be less 
-    /// than 0. 
+impl<T: Token> Lexer<T> for LexerVec<T> {
+    ///Basic index bounds checking.
+    /// index is usize, so can never be less
+    /// than 0.
     fn peek(&self) -> Option<T> {
         if self.index < self.inner.len() {
             Some(self.inner[self.index].clone())
@@ -122,8 +122,8 @@ impl<T: Token> Lexer<T> for LexerVec<T>
     }
 
     ///Returns token pointed to by the current index, then decrements it
-    /// There is implied bounds checking in that usize can never be 
-    /// less than 0. 
+    /// There is implied bounds checking in that usize can never be
+    /// less than 0.
     fn prev_token(&mut self) -> T {
         let t = self.inner[self.index].clone();
         self.index -= 1;
@@ -132,14 +132,14 @@ impl<T: Token> Lexer<T> for LexerVec<T>
 }
 
 impl<T: Token, I: Into<T>> FromIterator<I> for LexerVec<T> {
-    fn from_iter<Iter: IntoIterator<Item=I>>(iter: Iter) -> Self {
+    fn from_iter<Iter: IntoIterator<Item = I>>(iter: Iter) -> Self {
         let v: Vec<T> = iter.into_iter().map(|i| i.into()).collect();
         LexerVec::new(v)
     }
 }
 
 impl<T: Token> Extend<T> for LexerVec<T> {
-    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.inner.extend(iter);
     }
 }

@@ -20,13 +20,16 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+// false negative
+#![allow(clippy::needless_doctest_main)]
+
 //! # Introduction
 //!
 //! This crate implements a configurable and general-purpose Pratt parser.
 //!
 //! A Pratt parser is also known as a Top-Down Operator Precedence parser,
 //! aka TDOP parser. The general algorithm was discovered and outlined by
-//! Vaughn Pratt in 1973 in his paper[1].
+//! Vaughn Pratt in 1973 in his paper\[1\].
 //!
 //! It differs from recursive-descent classes of parsers by associating
 //! parsing rules to tokens rather than grammar rules.
@@ -46,14 +49,17 @@
 //!
 //! Whereas with a Pratt Parser, you need just three rules and three
 //! binding powers:
+//!
+//! ```plain
 //! null denotation of Variable => SimpleNode::Simple(token);
-//! left denotation of Add => SimpleNode::Composite(token: token, children: vec![node,
-//!     parser.parse_expr(5)]);
-//! left denotation of Mul => SimpleNode::Composite(token: token, children: vec![node,
-//!     parser.parse_expr(10)]);
+//! left denotation of Add =>
+//!   SimpleNode::Composite(token: token, children: vec![node, parser.parse_expr(5)]);
+//! left denotation of Mul =>
+//!   SimpleNode::Composite(token: token, children: vec![node, parser.parse_expr(10)]);
 //! lbp of Variable = 0;
 //! lbp of Add = 5;
 //! lbp of Mul = 10;
+//! ```
 //!
 //! And now it will correctly associate 'b' and 'c' tokens with the mul operator, and
 //! then the result of that with the 'a' token and the add operator.
@@ -124,6 +130,13 @@
 //! }
 //! ```
 //!
+//! ## Custom node types
+//!
+//! The `Parser` and `GeneralParser` types default to using the
+//! [`SimpleNode`](node::SimpleNode) enum defined in this crate, which is implemented
+//! using a simple (but inefficient) rose tree. Any other type can be used simply by
+//! specifying it in your parser definition.
+//!
 //! ## Capabilities
 //!
 //! This crate enables a very fast and simple parser, with simple rules, that is
@@ -139,7 +152,7 @@
 //! the token type so it can be used to lookup the parse rules (uses HashMap).
 //!
 //! ## Citations
-//! > [1] Vaughan R. Pratt. 1973. Top down operator precedence. In Proceedings
+//! > \[1\] Vaughan R. Pratt. 1973. Top down operator precedence. In Proceedings
 //! > of the 1st annual ACM SIGACT-SIGPLAN symposium on Principles of
 //! > programming languages (POPL '73). ACM, New York, NY, USA, 41-51.
 //! > DOI=http://dx.doi.org/10.1145/512927.512931
@@ -161,31 +174,31 @@ pub mod token;
 
 /// Handy prelude mod containing everything you need to get started.
 pub mod prelude {
-  pub use errors::ParseError;
-  pub use lexer::{Lexer, LexerVec};
-  pub use node::SimpleNode;
-  pub use parser::{GeneralParser, Parser};
-  pub use precedence::PrecedenceLevel;
-  pub use spec::{ParserSpec, SpecificationError};
-  pub use token::Token;
+    pub use errors::ParseError;
+    pub use lexer::{Lexer, LexerVec};
+    pub use node::SimpleNode;
+    pub use parser::{GeneralParser, Parser};
+    pub use precedence::PrecedenceLevel;
+    pub use spec::{ParserSpec, SpecificationError};
+    pub use token::Token;
 }
 
 //Little container mod for type aliases that are convenient and short
 pub mod types {
-  use super::prelude::*;
-  pub type NullDenotation<T, Node> = fn(
-    &mut dyn Parser<T, Node>,
-    T,
-    PrecedenceLevel,
-  ) -> Result<Node, ParseError<T>>;
-  pub type LeftDenotation<T, Node> = fn(
-    &mut dyn Parser<T, Node>,
-    T,
-    PrecedenceLevel,
-    Node,
-  ) -> Result<Node, ParseError<T>>;
+    use super::prelude::*;
+    pub type NullDenotation<T, Node> = fn(
+        &mut dyn Parser<T, Node>,
+        T,
+        PrecedenceLevel,
+    ) -> Result<Node, ParseError<T>>;
+    pub type LeftDenotation<T, Node> = fn(
+        &mut dyn Parser<T, Node>,
+        T,
+        PrecedenceLevel,
+        Node,
+    ) -> Result<Node, ParseError<T>>;
 
-  pub type NullInfo<T, Node> = (PrecedenceLevel, NullDenotation<T, Node>);
-  pub type LeftInfo<T, Node> =
-    (PrecedenceLevel, PrecedenceLevel, LeftDenotation<T, Node>);
+    pub type NullInfo<T, Node> = (PrecedenceLevel, NullDenotation<T, Node>);
+    pub type LeftInfo<T, Node> =
+        (PrecedenceLevel, PrecedenceLevel, LeftDenotation<T, Node>);
 }

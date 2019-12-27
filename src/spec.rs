@@ -57,136 +57,148 @@ use types::*;
 /// trying to debug a bad parse.
 #[derive(Clone, Debug, Fail)]
 pub enum SpecificationError<T: Token + Send + Sync + 'static> {
-  #[fail(display = "{} token -> rule mapping was already defined", tk)]
-  TokenToRuleAlreadyDefined { tk: T },
+    #[fail(display = "{} token -> rule mapping was already defined", tk)]
+    TokenToRuleAlreadyDefined { tk: T },
 }
 
 #[derive(Clone)]
 pub struct ParserSpec<T: Token + Send + Sync + 'static, Node = SimpleNode<T>> {
-  null_map: HashMap<Discriminant<T>, NullInfo<T, Node>>,
-  left_map: HashMap<Discriminant<T>, LeftInfo<T, Node>>,
+    null_map: HashMap<Discriminant<T>, NullInfo<T, Node>>,
+    left_map: HashMap<Discriminant<T>, LeftInfo<T, Node>>,
+}
+
+impl<T: Token + Send + Sync + 'static, Node> Default for ParserSpec<T, Node> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: Token + Send + Sync + 'static, Node> ParserSpec<T, Node> {
-  pub fn new() -> ParserSpec<T, Node> {
-    ParserSpec {
-      null_map: HashMap::new(),
-      left_map: HashMap::new(),
+    pub fn new() -> Self {
+        ParserSpec {
+            null_map: HashMap::new(),
+            left_map: HashMap::new(),
+        }
     }
-  }
 
-  pub fn add_null_assoc(
-    &mut self,
-    token: impl Into<T>,
-    bp: PrecedenceLevel,
-    func: NullDenotation<T, Node>,
-  ) -> Result<(), SpecificationError<T>> {
-    let token = token.into();
-    let disc = discriminant(&token);
-    if !self.null_map.contains_key(&disc) {
-      self.null_map.insert(disc, (bp, func));
-      Ok(())
-    } else {
-      Err(SpecificationError::TokenToRuleAlreadyDefined { tk: token })
+    pub fn add_null_assoc(
+        &mut self,
+        token: impl Into<T>,
+        bp: PrecedenceLevel,
+        func: NullDenotation<T, Node>,
+    ) -> Result<(), SpecificationError<T>> {
+        let token = token.into();
+        let disc = discriminant(&token);
+        match self.null_map.entry(disc) {
+            std::collections::hash_map::Entry::Occupied(_) => {
+                Err(SpecificationError::TokenToRuleAlreadyDefined { tk: token })
+            }
+            p => {
+                p.or_insert((bp, func));
+                Ok(())
+            }
+        }
     }
-  }
 
-  pub fn add_left_assoc(
-    &mut self,
-    token: impl Into<T>,
-    bp: PrecedenceLevel,
-    func: LeftDenotation<T, Node>,
-  ) -> Result<(), SpecificationError<T>> {
-    let token = token.into();
-    let disc = discriminant(&token);
-    if !self.left_map.contains_key(&disc) {
-      self.left_map.insert(disc, (bp, bp, func));
-      Ok(())
-    } else {
-      Err(SpecificationError::TokenToRuleAlreadyDefined { tk: token })
+    #[allow(clippy::map_entry)] // no easy way to implement `else` branch with Entry
+    pub fn add_left_assoc(
+        &mut self,
+        token: impl Into<T>,
+        bp: PrecedenceLevel,
+        func: LeftDenotation<T, Node>,
+    ) -> Result<(), SpecificationError<T>> {
+        let token = token.into();
+        let disc = discriminant(&token);
+        if !self.left_map.contains_key(&disc) {
+            self.left_map.insert(disc, (bp, bp, func));
+            Ok(())
+        } else {
+            Err(SpecificationError::TokenToRuleAlreadyDefined { tk: token })
+        }
     }
-  }
 
-  pub fn add_left_right_assoc(
-    &mut self,
-    token: impl Into<T>,
-    lbp: PrecedenceLevel,
-    rbp: PrecedenceLevel,
-    func: LeftDenotation<T, Node>,
-  ) -> Result<(), SpecificationError<T>> {
-    let token = token.into();
-    let disc = discriminant(&token);
-    if !self.left_map.contains_key(&disc) {
-      self.left_map.insert(disc, (lbp, rbp, func));
-      Ok(())
-    } else {
-      Err(SpecificationError::TokenToRuleAlreadyDefined { tk: token })
+    #[allow(clippy::map_entry)] // see above
+    pub fn add_left_right_assoc(
+        &mut self,
+        token: impl Into<T>,
+        lbp: PrecedenceLevel,
+        rbp: PrecedenceLevel,
+        func: LeftDenotation<T, Node>,
+    ) -> Result<(), SpecificationError<T>> {
+        let token = token.into();
+        let disc = discriminant(&token);
+        if !self.left_map.contains_key(&disc) {
+            self.left_map.insert(disc, (lbp, rbp, func));
+            Ok(())
+        } else {
+            Err(SpecificationError::TokenToRuleAlreadyDefined { tk: token })
+        }
     }
-  }
 
-  pub fn add_null_associations(
-    &mut self,
-    tokens: impl IntoIterator<Item = impl Into<T>>,
-    bp: PrecedenceLevel,
-    func: NullDenotation<T, Node>,
-  ) -> Result<(), SpecificationError<T>> {
-    for token in tokens {
-      self.add_null_assoc(token, bp, func)?;
+    pub fn add_null_associations(
+        &mut self,
+        tokens: impl IntoIterator<Item = impl Into<T>>,
+        bp: PrecedenceLevel,
+        func: NullDenotation<T, Node>,
+    ) -> Result<(), SpecificationError<T>> {
+        for token in tokens {
+            self.add_null_assoc(token, bp, func)?;
+        }
+        Ok(())
     }
-    Ok(())
-  }
 
-  pub fn add_left_associations(
-    &mut self,
-    tokens: impl IntoIterator<Item = impl Into<T>>,
-    bp: PrecedenceLevel,
-    func: LeftDenotation<T, Node>,
-  ) -> Result<(), SpecificationError<T>> {
-    for token in tokens {
-      self.add_left_assoc(token, bp, func)?;
+    pub fn add_left_associations(
+        &mut self,
+        tokens: impl IntoIterator<Item = impl Into<T>>,
+        bp: PrecedenceLevel,
+        func: LeftDenotation<T, Node>,
+    ) -> Result<(), SpecificationError<T>> {
+        for token in tokens {
+            self.add_left_assoc(token, bp, func)?;
+        }
+        Ok(())
     }
-    Ok(())
-  }
 
-  pub fn add_left_right_associations(
-    &mut self,
-    tokens: impl IntoIterator<Item = impl Into<T>>,
-    lbp: PrecedenceLevel,
-    rbp: PrecedenceLevel,
-    func: LeftDenotation<T, Node>,
-  ) -> Result<(), SpecificationError<T>> {
-    for token in tokens {
-      self.add_left_right_assoc(token, lbp, rbp, func)?;
+    pub fn add_left_right_associations(
+        &mut self,
+        tokens: impl IntoIterator<Item = impl Into<T>>,
+        lbp: PrecedenceLevel,
+        rbp: PrecedenceLevel,
+        func: LeftDenotation<T, Node>,
+    ) -> Result<(), SpecificationError<T>> {
+        for token in tokens {
+            self.add_left_right_assoc(token, lbp, rbp, func)?;
+        }
+        Ok(())
     }
-    Ok(())
-  }
 
-  ///Consumes a spec and gets the HashMaps used for mapping tokens
-  /// to syntax rules. This avoids clones and allocations/deallocations
-  /// of potentially large HashMaps when creating a Parser from the maps.
-  pub fn maps(
-    self,
-  ) -> (
-    HashMap<Discriminant<T>, NullInfo<T, Node>>,
-    HashMap<Discriminant<T>, LeftInfo<T, Node>>,
-  ) {
-    return (self.null_map, self.left_map);
-  }
+    ///Consumes a spec and gets the HashMaps used for mapping tokens
+    /// to syntax rules. This avoids clones and allocations/deallocations
+    /// of potentially large HashMaps when creating a Parser from the maps.
+    #[allow(clippy::type_complexity)]
+    pub fn maps(
+        self,
+    ) -> (
+        HashMap<Discriminant<T>, NullInfo<T, Node>>,
+        HashMap<Discriminant<T>, LeftInfo<T, Node>>,
+    ) {
+        (self.null_map, self.left_map)
+    }
 }
 
 #[cfg(test)]
 mod test {
-  use super::*;
-  //Catch Send/Sync changes
-  #[test]
-  fn test_parserspec_send() {
-    fn assert_send<T: Send>() {}
-    assert_send::<ParserSpec<String>>();
-  }
+    use super::*;
+    //Catch Send/Sync changes
+    #[test]
+    fn test_parserspec_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<ParserSpec<String>>();
+    }
 
-  #[test]
-  fn test_parserspec_sync() {
-    fn assert_sync<T: Sync>() {}
-    assert_sync::<ParserSpec<String>>();
-  }
+    #[test]
+    fn test_parserspec_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<ParserSpec<String>>();
+    }
 }

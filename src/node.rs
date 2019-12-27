@@ -40,42 +40,42 @@ use token::Token;
 
 #[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum SimpleNode<T: Token> {
-  Simple(T),
-  Composite {
-    token: T,
-    children: Vec<SimpleNode<T>>,
-  },
+    Simple(T),
+    Composite {
+        token: T,
+        children: Vec<SimpleNode<T>>,
+    },
 }
 
 impl<T: Token> Display for SimpleNode<T> {
-  fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-    write!(
-      f,
-      "{}",
-      match self {
-        SimpleNode::Simple(ref t) => format!("Simple({})", t),
-        SimpleNode::Composite {
-          token: ref t,
-          children: ref childs,
-        } => format!("Composite(token: {}, children: {:?})", t, childs),
-      }
-    )
-  }
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        write!(
+            f,
+            "{}",
+            match self {
+                SimpleNode::Simple(ref t) => format!("Simple({})", t),
+                SimpleNode::Composite {
+                    token: ref t,
+                    children: ref childs,
+                } => format!("Composite(token: {}, children: {:?})", t, childs),
+            }
+        )
+    }
 }
 
 #[cfg(test)]
 mod test {
-  use super::*;
-  //Catch Send/Sync changes
-  #[test]
-  fn test_node_send() {
-    fn assert_send<T: Send>() {}
-    assert_send::<SimpleNode<String>>();
-  }
+    use super::*;
+    //Catch Send/Sync changes
+    #[test]
+    fn test_node_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<SimpleNode<String>>();
+    }
 
-  #[test]
-  fn test_node_sync() {
-    fn assert_sync<T: Sync>() {}
-    assert_sync::<SimpleNode<String>>();
-  }
+    #[test]
+    fn test_node_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<SimpleNode<String>>();
+    }
 }

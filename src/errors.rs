@@ -46,47 +46,47 @@ use token::Token;
 ///
 #[derive(Clone, Debug, Eq, Fail, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ParseError<T: Token + Send + Sync + 'static> {
-  /// # ParseError::MalformedSyntax
-  /// Represents parser context when a syntax rule fails.
-  /// Not returned by the general parser implementation.
-  /// Usage: during a syntax rule, if this error is to be
-  /// returned, use *node* for the current node passed to
-  /// the syntax rule, and *token* for the token that lead to
-  /// the error to be returned.
-  #[fail(
-    display = "incorrect syntax, failed on node: {} with token: {}",
-    node, token
-  )]
-  MalformedSyntax { node: SimpleNode<T>, token: T },
-  /// Returned by the parser when a rule is not found for a specific token.
-  /// Generally only should be seen during development of a language spec.
-  #[fail(display = "missing a {} syntax rule for: {}", ty, token)]
-  MissingRule { token: T, ty: String },
-  /// Expected more input than was available. Returned by the parser.
-  #[fail(display = "token iteration ended before parsing context finished")]
-  Incomplete,
-  /// <P as Parser<T>>::consume(end_token: T) was called, and the required
-  /// token was not found as the next token(returned by peek/next_token).
-  #[fail(
-    display = "parser.consume(end_token: {}) didn't find expected token, instead found: {}.",
-    expected, found
-  )]
-  ConsumeFailed { expected: T, found: T },
+    /// # ParseError::MalformedSyntax
+    /// Represents parser context when a syntax rule fails.
+    /// Not returned by the general parser implementation.
+    /// Usage: during a syntax rule, if this error is to be
+    /// returned, use *node* for the current node passed to
+    /// the syntax rule, and *token* for the token that lead to
+    /// the error to be returned.
+    #[fail(
+        display = "incorrect syntax, failed on node: {} with token: {}",
+        node, token
+    )]
+    MalformedSyntax { node: SimpleNode<T>, token: T },
+    /// Returned by the parser when a rule is not found for a specific token.
+    /// Generally only should be seen during development of a language spec.
+    #[fail(display = "missing a {} syntax rule for: {}", ty, token)]
+    MissingRule { token: T, ty: String },
+    /// Expected more input than was available. Returned by the parser.
+    #[fail(display = "token iteration ended before parsing context finished")]
+    Incomplete,
+    /// <P as Parser<T>>::consume(end_token: T) was called, and the required
+    /// token was not found as the next token(returned by peek/next_token).
+    #[fail(
+        display = "parser.consume(end_token: {}) didn't find expected token, instead found: {}.",
+        expected, found
+    )]
+    ConsumeFailed { expected: T, found: T },
 }
 
 #[cfg(test)]
 mod test {
-  use super::*;
-  //Catch Send/Sync changes
-  #[test]
-  fn test_parseerror_send() {
-    fn assert_send<T: Send>() {}
-    assert_send::<ParseError<String>>();
-  }
+    use super::*;
+    //Catch Send/Sync changes
+    #[test]
+    fn test_parseerror_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<ParseError<String>>();
+    }
 
-  #[test]
-  fn test_parseerror_sync() {
-    fn assert_sync<T: Sync>() {}
-    assert_sync::<ParseError<String>>();
-  }
+    #[test]
+    fn test_parseerror_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<ParseError<String>>();
+    }
 }

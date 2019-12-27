@@ -47,21 +47,23 @@ use types::*;
 /// language and so the syntax rules need to not be tied to any specific Parser impl.
 /// Hence why the ParserSpec uses closures with the signature ```&mut dyn Parser<T>```
 pub trait Parser<T: Token + Send + Sync + 'static, Node = SimpleNode<T>> {
-  fn parse(&mut self) -> Result<Node, ParseError<T>>;
-  fn parse_expr(&mut self, rbp: PrecedenceLevel)
-    -> Result<Node, ParseError<T>>;
-  /// parse_sequence impl can be a bit complex -
-  /// basically it *should* call parse_expr repeatedly with prec_level,
-  /// while consuming an (optional) separator token, and then consuming
-  /// an end token, or if there is no end token, consuming until we reach Incomplete
-  fn parse_sequence(
-    &mut self,
-    prec_level: PrecedenceLevel,
-    sep: Option<T>,
-    end_token: Option<T>,
-  ) -> Vec<Result<Node, ParseError<T>>>;
-  fn next_binds_tighter_than(&mut self, rbp: PrecedenceLevel) -> bool;
-  fn consume(&mut self, end_token: T) -> Result<(), ParseError<T>>;
+    fn parse(&mut self) -> Result<Node, ParseError<T>>;
+    fn parse_expr(
+        &mut self,
+        rbp: PrecedenceLevel,
+    ) -> Result<Node, ParseError<T>>;
+    /// parse_sequence impl can be a bit complex -
+    /// basically it *should* call parse_expr repeatedly with prec_level,
+    /// while consuming an (optional) separator token, and then consuming
+    /// an end token, or if there is no end token, consuming until we reach Incomplete
+    fn parse_sequence(
+        &mut self,
+        prec_level: PrecedenceLevel,
+        sep: Option<T>,
+        end_token: Option<T>,
+    ) -> Vec<Result<Node, ParseError<T>>>;
+    fn next_binds_tighter_than(&mut self, rbp: PrecedenceLevel) -> bool;
+    fn consume(&mut self, end_token: T) -> Result<(), ParseError<T>>;
 }
 
 /// General implementation of Parser trait. This implementation should work for any
@@ -79,213 +81,218 @@ pub trait Parser<T: Token + Send + Sync + 'static, Node = SimpleNode<T>> {
 /// borrowed by borrowck.
 pub struct GeneralParser<T, L, Node = SimpleNode<T>>
 where
-  T: Token + Send + Sync + 'static,
-  L: Lexer<T>,
+    T: Token + Send + Sync + 'static,
+    L: Lexer<T>,
 {
-  null_map: HashMap<Discriminant<T>, NullInfo<T, Node>>,
-  left_map: HashMap<Discriminant<T>, LeftInfo<T, Node>>,
-  lexer: L,
+    null_map: HashMap<Discriminant<T>, NullInfo<T, Node>>,
+    left_map: HashMap<Discriminant<T>, LeftInfo<T, Node>>,
+    lexer: L,
 }
 
 /// GeneralParser impl
 /// Wraps trait methods to allow users to only need to import this, without
 /// the trait. Also offers a compile time check that GeneralParser still
 /// impls Parser correctly.
-#[allow(dead_code)]
 impl<T: Token + Send + Sync + 'static, L: Lexer<T>, Node>
-  GeneralParser<T, L, Node>
+    GeneralParser<T, L, Node>
 {
-  pub fn new(spec: ParserSpec<T, Node>, lexer: L) -> Self {
-    let (null_map, left_map) = spec.maps();
-    GeneralParser {
-      null_map: null_map,
-      left_map: left_map,
-      lexer: lexer,
+    pub fn new(spec: ParserSpec<T, Node>, lexer: L) -> Self {
+        let (null_map, left_map) = spec.maps();
+        GeneralParser {
+            null_map,
+            left_map,
+            lexer,
+        }
     }
-  }
 
-  fn parse(&mut self) -> Result<Node, ParseError<T>> {
-    self.parse_expr(PrecedenceLevel::Root)
-  }
+    #[allow(dead_code)]
+    fn parse(&mut self) -> Result<Node, ParseError<T>> {
+        self.parse_expr(PrecedenceLevel::Root)
+    }
 
-  fn parse_expr(
-    &mut self,
-    rbp: PrecedenceLevel,
-  ) -> Result<Node, ParseError<T>> {
-    <Self as Parser<T, Node>>::parse_expr(self, rbp)
-  }
+    fn parse_expr(
+        &mut self,
+        rbp: PrecedenceLevel,
+    ) -> Result<Node, ParseError<T>> {
+        <Self as Parser<T, Node>>::parse_expr(self, rbp)
+    }
 
-  fn parse_sequence(
-    &mut self,
-    prec_level: PrecedenceLevel,
-    sep: Option<T>,
-    end_token: Option<T>,
-  ) -> Vec<Result<Node, ParseError<T>>> {
-    <Self as Parser<T, Node>>::parse_sequence(self, prec_level, sep, end_token)
-  }
+    #[allow(dead_code)]
+    fn parse_sequence(
+        &mut self,
+        prec_level: PrecedenceLevel,
+        sep: Option<T>,
+        end_token: Option<T>,
+    ) -> Vec<Result<Node, ParseError<T>>> {
+        <Self as Parser<T, Node>>::parse_sequence(
+            self, prec_level, sep, end_token,
+        )
+    }
 
-  fn next_binds_tighter_than(&mut self, rbp: PrecedenceLevel) -> bool {
-    <Self as Parser<T, Node>>::next_binds_tighter_than(self, rbp)
-  }
+    fn next_binds_tighter_than(&mut self, rbp: PrecedenceLevel) -> bool {
+        <Self as Parser<T, Node>>::next_binds_tighter_than(self, rbp)
+    }
 
-  fn consume(&mut self, end_token: T) -> Result<(), ParseError<T>> {
-    <Self as Parser<T, Node>>::consume(self, end_token)
-  }
+    fn consume(&mut self, end_token: T) -> Result<(), ParseError<T>> {
+        <Self as Parser<T, Node>>::consume(self, end_token)
+    }
 }
 
 impl<T: Token + Send + Sync + 'static, L: Lexer<T>, Node> Parser<T, Node>
-  for GeneralParser<T, L, Node>
+    for GeneralParser<T, L, Node>
 {
-  fn parse(&mut self) -> Result<Node, ParseError<T>> {
-    self.parse_expr(PrecedenceLevel::Root)
-  }
-
-  fn parse_expr(
-    &mut self,
-    rbp: PrecedenceLevel,
-  ) -> Result<Node, ParseError<T>> {
-    if let Some(tk) = self.lexer.peek() {
-      self.lexer.next_token();
-      let (lbp, func) = {
-        let val = self.null_map.get(&discriminant(&tk));
-        match val {
-          Some(val) => val.clone(),
-          None => {
-            return Err(ParseError::MissingRule {
-              token: tk.clone(),
-              ty: "Null".into(),
-            })
-          }
-        }
-      };
-      let mut left = func(self, tk, lbp)?;
-      while self.next_binds_tighter_than(rbp) {
-        let tk = self.lexer.next_token(); //implied that token exists
-        let val = {
-          let v = self.left_map.get(&discriminant(&tk));
-          match v {
-            Some(val) => val.clone(),
-            None => {
-              return Err(ParseError::MissingRule {
-                token: tk.clone(),
-                ty: "Left".into(),
-              })
-            }
-          }
-        };
-        let (lbp, _, func) = val;
-        left = func(self, tk, lbp, left)?;
-      }
-      Ok(left)
-    } else {
-      Err(ParseError::Incomplete)
+    fn parse(&mut self) -> Result<Node, ParseError<T>> {
+        self.parse_expr(PrecedenceLevel::Root)
     }
-  }
 
-  fn parse_sequence(
-    &mut self,
-    prec_level: PrecedenceLevel,
-    sep: Option<T>,
-    end_token: Option<T>,
-  ) -> Vec<Result<Node, ParseError<T>>> {
-    let mut results = Vec::new();
-    loop {
-      let res = self.parse_expr(prec_level);
-      if res.is_ok() {
-        match &sep {
-          &Some(ref sep) => match self.consume(sep.clone()) {
-            Ok(()) => {}
-            Err(ParseError::ConsumeFailed {
-              expected: _,
-              ref found,
-            }) => {
-              match &end_token {
-                &Some(ref end_token) => {
-                  if end_token == found {
-                    match self.consume(found.clone()) {
-                      Ok(()) => break,
-                      Err(pe) => {
-                        results.push(Err(pe));
-                      }
+    fn parse_expr(
+        &mut self,
+        rbp: PrecedenceLevel,
+    ) -> Result<Node, ParseError<T>> {
+        if let Some(tk) = self.lexer.peek() {
+            self.lexer.next_token();
+            let (lbp, func) = {
+                let val = self.null_map.get(&discriminant(&tk));
+                match val {
+                    Some(val) => *val,
+                    None => {
+                        return Err(ParseError::MissingRule {
+                            token: tk,
+                            ty: "Null".into(),
+                        })
                     }
-                  } else {
-                    results.push(Err(ParseError::ConsumeFailed {
-                      expected: sep.clone(),
-                      found: found.clone(),
-                    }));
-                  }
                 }
-                &None => {
-                  results.push(Err(ParseError::ConsumeFailed {
-                    expected: sep.clone(),
-                    found: found.clone(),
-                  }));
-                }
-              };
-              break;
+            };
+            let mut left = func(self, tk, lbp)?;
+            while self.next_binds_tighter_than(rbp) {
+                let tk = self.lexer.next_token(); //implied that token exists
+                let val = {
+                    let v = self.left_map.get(&discriminant(&tk));
+                    match v {
+                        Some(val) => *val,
+                        None => {
+                            return Err(ParseError::MissingRule {
+                                token: tk,
+                                ty: "Left".into(),
+                            })
+                        }
+                    }
+                };
+                let (lbp, _, func) = val;
+                left = func(self, tk, lbp, left)?;
             }
-            Err(pe) => results.push(Err(pe)),
-          },
-          None => {}
+            Ok(left)
+        } else {
+            Err(ParseError::Incomplete)
         }
-      } else {
-        match (&res, end_token) {
-          (&Err(ParseError::Incomplete), None) => {
-            return results;
-          }
-          _ => {}
-        };
-        results.push(res);
-        break;
-      }
-      results.push(res);
     }
-    results
-  }
 
-  fn next_binds_tighter_than(&mut self, rbp: PrecedenceLevel) -> bool {
-    if let Some(tk) = self.lexer.peek() {
-      if let Some((_, next_rbp, _)) = self.left_map.get(&discriminant(&tk)) {
-        *next_rbp > rbp
-      } else {
-        false
-      }
-    } else {
-      false
+    fn parse_sequence(
+        &mut self,
+        prec_level: PrecedenceLevel,
+        sep: Option<T>,
+        end_token: Option<T>,
+    ) -> Vec<Result<Node, ParseError<T>>> {
+        let mut results = Vec::new();
+        loop {
+            let res = self.parse_expr(prec_level);
+            if res.is_ok() {
+                match &sep {
+                    &Some(ref sep) => match self.consume(sep.clone()) {
+                        Ok(()) => {}
+                        Err(ParseError::ConsumeFailed {
+                            ref found, ..
+                        }) => {
+                            match end_token {
+                                Some(ref end_token) => {
+                                    if end_token == found {
+                                        match self.consume(found.clone()) {
+                                            Ok(()) => break,
+                                            Err(pe) => {
+                                                results.push(Err(pe));
+                                            }
+                                        }
+                                    } else {
+                                        results.push(Err(
+                                            ParseError::ConsumeFailed {
+                                                expected: sep.clone(),
+                                                found: found.clone(),
+                                            },
+                                        ));
+                                    }
+                                }
+                                None => {
+                                    results.push(Err(
+                                        ParseError::ConsumeFailed {
+                                            expected: sep.clone(),
+                                            found: found.clone(),
+                                        },
+                                    ));
+                                }
+                            };
+                            break;
+                        }
+                        Err(pe) => results.push(Err(pe)),
+                    },
+                    None => {}
+                }
+            } else {
+                if let (Err(ParseError::Incomplete), None) = (&res, end_token) {
+                    return results;
+                }
+                results.push(res);
+                break;
+            }
+            results.push(res);
+        }
+        results
     }
-  }
 
-  fn consume(&mut self, end_token: T) -> Result<(), ParseError<T>> {
-    if let Some(tk) = self.lexer.peek() {
-      if tk == end_token {
-        self.lexer.next_token();
-        Ok(())
-      } else {
-        Err(ParseError::ConsumeFailed {
-          expected: end_token,
-          found: tk.clone(),
-        })
-      }
-    } else {
-      Err(ParseError::Incomplete)
+    fn next_binds_tighter_than(&mut self, rbp: PrecedenceLevel) -> bool {
+        if let Some(tk) = self.lexer.peek() {
+            if let Some((_, next_rbp, _)) =
+                self.left_map.get(&discriminant(&tk))
+            {
+                *next_rbp > rbp
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
-  }
+
+    fn consume(&mut self, end_token: T) -> Result<(), ParseError<T>> {
+        if let Some(tk) = self.lexer.peek() {
+            if tk == end_token {
+                self.lexer.next_token();
+                Ok(())
+            } else {
+                Err(ParseError::ConsumeFailed {
+                    expected: end_token,
+                    found: tk,
+                })
+            }
+        } else {
+            Err(ParseError::Incomplete)
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
-  use super::*;
-  use lexer::LexerVec;
-  //Catch Send/Sync changes
-  #[test]
-  fn test_parser_send() {
-    fn assert_send<T: Send>() {}
-    assert_send::<GeneralParser<String, LexerVec<String>>>();
-  }
+    use super::*;
+    use lexer::LexerVec;
+    //Catch Send/Sync changes
+    #[test]
+    fn test_parser_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<GeneralParser<String, LexerVec<String>>>();
+    }
 
-  #[test]
-  fn test_parser_sync() {
-    fn assert_sync<T: Sync>() {}
-    assert_sync::<GeneralParser<String, LexerVec<String>>>();
-  }
+    #[test]
+    fn test_parser_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<GeneralParser<String, LexerVec<String>>>();
+    }
 }
